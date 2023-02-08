@@ -1,17 +1,15 @@
 """Scraper for truckscout24."""
-import asyncio
-import re
-from dataclasses import dataclass, asdict
-from io import BytesIO
-from typing import Optional
 import json
 import os
+import re
+import time
+from io import BytesIO
 
 import httpx
 from bs4 import BeautifulSoup
 from PIL import Image
-
-from playwright.sync_api import sync_playwright
+from selenium import webdriver
+from selenium.webdriver.common.by import By
 
 urls = []
 page_count = 4
@@ -46,48 +44,66 @@ def get_ads_links():
     return links
 
 
+options = webdriver.ChromeOptions()
+options.add_argument("--ignore-certificate-errors")
+options.add_argument("--incognito")
+options.add_argument("--headless")
+driver = webdriver.Chrome(options=options)
+
+
 def get_ads_data():
     ads = []
     url: str = "https://www.truckscout24.de"
     urls = [url + link for link in get_ads_links()]
 
-    with sync_playwright() as p:
-        for i in range(page_count):
-            page_html = get_html(urls[i])
-            soup = BeautifulSoup(page_html, "lxml")
-            columns_soup = soup.select_one(".columns")
+    for i in range(page_count):
+        page_html = get_html(urls[i])
+        soup = BeautifulSoup(page_html, "lxml")
+        columns_soup = soup.select_one(".columns")
+        driver.get(urls[i])
 
-            browser = p.chromium.launch()
-            page = browser.new_page()
-            page.goto(urls[i])
+        show_more = driver.find_element(By.CLASS_NAME, "show-more")
 
-            # For description
+        if show_more.is_displayed():
+            driver.execute_script("arguments[0].click();", show_more)
+            time.sleep(5)
 
-            browser.close()
-
-            ads.append(
-                dict(
-                    id=i + 1,
-                    href=urls[i],
-                    title=soup.select_one(".sc-ellipsis").get_text(),
-                    price=re.search(
+        print(driver.page_source)
+        ads.append(
+            dict(
+                id=i + 1,
+                href=urls[i],
+                title=soup.select_one(".sc-ellipsis").get_text(),
+                price=int(
+                    re.search(
                         r"€ (\d+\.?\d*)", soup.select_one(".d-price > h2").get_text()
-                    ).group(1),
-                    mileage=re.search(
+                    )
+                    .group(1)
+                    .replace(".", "")
+                ),
+                mileage=int(
+                    re.search(
                         r"(\d+\.?\d*) km", soup.select_one(".data-basic1").get_text()
-                    ).group(1),
-                    color=columns_soup.select_one("li:nth-child(n+9)")
-                    .select_one("div:nth-child(n+2)")
-                    .get_text(),
-                    power=re.search(
+                    )
+                    .group(1)
+                    .replace(".", "")
+                ),
+                color=columns_soup.select_one("li:nth-child(n+9)")
+                .select_one("div:nth-child(n+2)")
+                .get_text(),
+                power=int(
+                    re.search(
                         r"(\d+\.?\d*) kW",
                         columns_soup.select_one("li:nth-child(n+11)")
                         .select_one("div:nth-child(n+2)")
                         .get_text(),
-                    ).group(1),
-                    description="",
-                )
+                    ).group(1)
+                ),
+                description=BeautifulSoup(driver.page_source, "lxml")
+                .select_one(".short-description")
+                .prettify(),
             )
+        )
     return ads
 
 
@@ -95,7 +111,7 @@ def main():
     if not os.path.exists("data"):
         os.mkdir("data")
     with open("data/data.json", "w") as data:
-        data.write(json.dumps({}, indent=4))
+        data.write(json.dumps({"ads": get_ads_data()}, indent=4))
 
 
 if __name__ == "__main__":
