@@ -1,6 +1,7 @@
 """Scraper for truckscout24."""
+import asyncio
 from dataclasses import dataclass
-
+import pyppeteer
 import httpx
 from bs4 import BeautifulSoup
 from typing import Optional
@@ -17,7 +18,7 @@ class Ad:
     price: int | str
     mileage: Optional[int | str]
     color: Optional[str]
-    power: Optional[int]
+    power: Optional[int | str]
     description: str
 
 
@@ -63,6 +64,8 @@ def get_ads_data():
         page_html = get_html(urls[i])
         soup = BeautifulSoup(page_html, "html.parser")
 
+        columns = soup.select_one(".columns")
+
         ads.append(
             Ad(
                 id=i + 1,
@@ -70,8 +73,8 @@ def get_ads_data():
                 title=soup.select_one(".sc-ellipsis").get_text(),
                 price=soup.select_one(".d-price > h2").get_text(),
                 mileage="",
-                color="",
-                power=0,
+                color=columns.select_one("li:nth-child(n+9)").select_one("div:nth-child(n+2)").get_text(),
+                power=columns.select_one("li:nth-child(n+11)").select_one("div:nth-child(n+2)").get_text(),
                 description="",
             )
         )
