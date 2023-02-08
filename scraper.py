@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Optional
+import json
 
 import httpx
 import pyppeteer
@@ -16,10 +17,10 @@ class Ad:
     id: int
     href: str
     title: str
-    price: int | str
-    mileage: int
-    color: Optional[str]
-    power: Optional[int | str]
+    price: int
+    mileage:int
+    color: str
+    power: int
     description: str
 
 
@@ -72,20 +73,22 @@ def get_ads_data():
                 id=i + 1,
                 href=urls[i],
                 title=soup.select_one(".sc-ellipsis").get_text(),
-                price=soup.select_one(".d-price > h2").get_text(),
-                mileage=int(
-                    re.search(r"(\d+\.?\d*) km", 
-                    soup.select_one(".data-basic1")\
-                        .get_text()
-                    )
-                    .group(1)
-                ),
+                price=re.search(
+                    r"€ (\d+\.?\d*)", soup.select_one(".d-price > h2").get_text()
+                ).group(1),
+                mileage=re.search(
+                    r"(\d+\.?\d*) km", soup.select_one(".data-basic1").get_text()
+                ).group(1),
                 color=columns_soup.select_one("li:nth-child(n+9)")
                 .select_one("div:nth-child(n+2)")
                 .get_text(),
-                power=columns_soup.select_one("li:nth-child(n+11)")
-                .select_one("div:nth-child(n+2)")
-                .get_text(),
+                power=re.search(
+                    r"(\d+\.?\d*) kW", 
+                    columns_soup
+                        .select_one("li:nth-child(n+11)")
+                        .select_one("div:nth-child(n+2)")
+                        .get_text()
+                ).group(1),
                 description="",
             )
         )
