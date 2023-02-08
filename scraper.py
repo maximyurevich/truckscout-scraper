@@ -1,13 +1,14 @@
 """Scraper for truckscout24."""
 import asyncio
-from dataclasses import dataclass
-import pyppeteer
-import httpx
-from bs4 import BeautifulSoup
-from typing import Optional
-from io import BytesIO
-from PIL import Image
 import re
+from dataclasses import dataclass
+from io import BytesIO
+from typing import Optional
+
+import httpx
+import pyppeteer
+from bs4 import BeautifulSoup
+from PIL import Image
 
 
 @dataclass
@@ -64,7 +65,7 @@ def get_ads_data():
         page_html = get_html(urls[i])
         soup = BeautifulSoup(page_html, "html.parser")
 
-        columns = soup.select_one(".columns")
+        columns_soup = soup.select_one(".columns")
 
         ads.append(
             Ad(
@@ -72,9 +73,13 @@ def get_ads_data():
                 href=urls[i],
                 title=soup.select_one(".sc-ellipsis").get_text(),
                 price=soup.select_one(".d-price > h2").get_text(),
-                mileage="",
-                color=columns.select_one("li:nth-child(n+9)").select_one("div:nth-child(n+2)").get_text(),
-                power=columns.select_one("li:nth-child(n+11)").select_one("div:nth-child(n+2)").get_text(),
+                mileage=soup.select_one(".data-basic1").get_text(),
+                color=columns_soup.select_one("li:nth-child(n+9)")
+                .select_one("div:nth-child(n+2)")
+                .get_text(),
+                power=columns_soup.select_one("li:nth-child(n+11)")
+                .select_one("div:nth-child(n+2)")
+                .get_text(),
                 description="",
             )
         )
