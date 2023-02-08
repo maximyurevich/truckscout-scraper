@@ -17,7 +17,7 @@ class Ad:
     href: str
     title: str
     price: int | str
-    mileage: Optional[int | str]
+    mileage: int
     color: Optional[str]
     power: Optional[int | str]
     description: str
@@ -73,7 +73,13 @@ def get_ads_data():
                 href=urls[i],
                 title=soup.select_one(".sc-ellipsis").get_text(),
                 price=soup.select_one(".d-price > h2").get_text(),
-                mileage=soup.select_one(".data-basic1").get_text(),
+                mileage=int(
+                    re.search(r"(\d+\.?\d*) km", 
+                    soup.select_one(".data-basic1")\
+                        .get_text()
+                    )
+                    .group(1)
+                ),
                 color=columns_soup.select_one("li:nth-child(n+9)")
                 .select_one("div:nth-child(n+2)")
                 .get_text(),
