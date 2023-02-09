@@ -29,9 +29,9 @@ for i in range(page_count):
 
 
 def get_html(url: str):
-    """get_html.
+    """Get HTML from response.
 
-    :param url:
+    :param url: page url
     :type url: str
     """
     response = httpx.get(url).text
@@ -39,9 +39,9 @@ def get_html(url: str):
 
 
 def download_image(url: str, image_name: int):
-    """download_image.
+    """Download and save images.
 
-    :param url:
+    :param url: image url
     :type url: str
     """
     response = httpx.get(url)
@@ -50,20 +50,19 @@ def download_image(url: str, image_name: int):
 
 
 def get_ads_links():
-    """get_ads_links."""
+    """Get ads links with bs4."""
     links = []
 
     for i in range(page_count):
         links.append(
-            BeautifulSoup(get_html(urls[i]), "lxml")
-            .select_one(".ls-titles a")["href"]
+            BeautifulSoup(get_html(urls[i]), "lxml").select_one(".ls-titles a")["href"]
         )
 
     return links
 
 
 def get_ads_data():
-    """get_ads_data."""
+    """Get ads data with selenium and bs4."""
     if not os.path.exists("data"):
         os.mkdir("data")
     ads = []
@@ -71,18 +70,16 @@ def get_ads_data():
     urls = [url + link for link in get_ads_links()]
 
     for i in range(page_count):
-        if not os.path.exists(f"data/{i+1}"):
-            os.mkdir(f"data/{i+1}")
+        id = i + 1
+        if not os.path.exists(f"data/{id}"):
+            os.mkdir(f"data/{id}")
         page_html = get_html(urls[i])
 
         soup = BeautifulSoup(page_html, "lxml")
 
         columns = soup.select_one(".columns")
 
-        price = re.search(
-                r"€ (\d+\.?\d*)",
-                soup.select_one(".d-price > h2").get_text()
-        )
+        price = re.search(r"€ (\d+\.?\d*)", soup.select_one(".d-price > h2").get_text())
 
         mileage = re.search(
             r"(\d+\.?\d*) km", soup.select_one(".data-basic1").get_text()
@@ -90,19 +87,15 @@ def get_ads_data():
 
         power = re.search(
             r"(\d+\.?\d*) kW",
-            columns.select_one("li:nth-child(n+11)")
-            .select_one("div:nth-child(n+2)")
-            .get_text(),
+            columns.get_text(),
         )
 
         carousel_items = soup.select(".as24-carousel__item")
 
         for j in range(3):
             download_image(
-                    carousel_items[j]
-                    .select_one(".gallery-picture")
-                    .img["data-src"],
-                    f"data/{i+1}/{j + 1}"
+                carousel_items[j].select_one(".gallery-picture").img["data-src"],
+                f"data/{i+1}/{j + 1}",
             )
 
         driver.get(urls[i])
@@ -110,23 +103,23 @@ def get_ads_data():
 
         if show_more.is_displayed():
             driver.execute_script("arguments[0].click();", show_more)
-            time.sleep(1)
+            time.sleep(5)
 
-        description = BeautifulSoup(driver.page_source, "lxml").find("div", {
-            "data-target": "[data-item-name='description']"
-        }).get_text()
+        description = (
+            BeautifulSoup(driver.page_source, "lxml")
+            .find("div", {"data-target": "[data-item-name='description']"})
+            .get_text()
+        )
 
         ads.append(
             dict(
-                id=i + 1,
+                id=id,
                 href=urls[i],
                 title=soup.select_one(".sc-ellipsis").get_text(),
-                price=0 if price is None else int(
-                    price.group(1).replace(".", "")
-                ),
-                mileage=0 if mileage is None else int(
-                    mileage.group(1).replace(".", "")
-                ),
+                price=0 if price is None else int(price.group(1).replace(".", "")),
+                mileage=0
+                if mileage is None
+                else int(mileage.group(1).replace(".", "")),
                 color=columns.select_one("li:nth-child(n+9)")
                 .select_one("div:nth-child(n+2)")
                 .get_text(),
@@ -139,7 +132,7 @@ def get_ads_data():
 
 
 def main():
-    """main."""
+    """Main function."""
     with open("data/data.json", "w") as data:
         data.write(json.dumps({"ads": get_ads_data()}, indent=4))
 
