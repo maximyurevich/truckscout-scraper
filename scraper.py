@@ -3,8 +3,8 @@ import json
 import os
 import re
 import time
-from io import BytesIO
 import uuid
+from io import BytesIO
 
 import httpx
 from bs4 import BeautifulSoup
@@ -84,10 +84,7 @@ def get_ads_data():
             r"(\d+\.?\d*) km", soup.select_one(".data-basic1").get_text()
         )
 
-        color = re.search(
-            r"Farbe\n(.+)\n",
-            columns.get_text()
-        )
+        color = re.search(r"Farbe\n(.+)\n", columns.get_text())
 
         power = re.search(
             r"(\d+\.?\d*) kW",
@@ -126,8 +123,7 @@ def get_ads_data():
                 mileage=0
                 if mileage is None
                 else int(mileage.group(1).replace(".", "")),
-                color="" if color is None
-                else color.group(1),
+                color="" if color is None else color.group(1),
                 power=0 if power is None else int(power.group(1)),
                 description="" if description is None else description.get_text(),
             )
