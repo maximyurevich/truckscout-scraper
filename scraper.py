@@ -4,6 +4,7 @@ import os
 import re
 import time
 from io import BytesIO
+from types import NoneType
 
 import httpx
 from bs4 import BeautifulSoup
@@ -13,6 +14,12 @@ from selenium.webdriver.common.by import By
 
 urls = []
 page_count = 4
+
+options = webdriver.ChromeOptions()
+options.add_argument("--ignore-certificate-errors")
+options.add_argument("--incognito")
+# options.add_argument("--headless")
+driver = webdriver.Chrome(options=options)
 
 for i in range(page_count):
     urls.append(
@@ -44,13 +51,6 @@ def get_ads_links():
     return links
 
 
-options = webdriver.ChromeOptions()
-options.add_argument("--ignore-certificate-errors")
-options.add_argument("--incognito")
-options.add_argument("--headless")
-driver = webdriver.Chrome(options=options)
-
-
 def get_ads_data():
     ads = []
     url: str = "https://www.truckscout24.de"
@@ -60,48 +60,44 @@ def get_ads_data():
         page_html = get_html(urls[i])
         soup = BeautifulSoup(page_html, "lxml")
         columns_soup = soup.select_one(".columns")
+
+        price = re.search(r"€ (\d+\.?\d*)", soup.select_one(".d-price > h2").get_text())
+
+        mileage = re.search(
+            r"(\d+\.?\d*) km", soup.select_one(".data-basic1").get_text()
+        )
+
+        power = re.search(
+            r"(\d+\.?\d*) kW",
+            columns_soup.select_one("li:nth-child(n+11)")
+            .select_one("div:nth-child(n+2)")
+            .get_text(),
+        )
+
         driver.get(urls[i])
 
         show_more = driver.find_element(By.CLASS_NAME, "show-more")
 
         if show_more.is_displayed():
             driver.execute_script("arguments[0].click();", show_more)
-            time.sleep(5)
+            time.sleep(1)
 
-        print(driver.page_source)
         ads.append(
             dict(
                 id=i + 1,
                 href=urls[i],
                 title=soup.select_one(".sc-ellipsis").get_text(),
-                price=int(
-                    re.search(
-                        r"€ (\d+\.?\d*)", soup.select_one(".d-price > h2").get_text()
-                    )
-                    .group(1)
-                    .replace(".", "")
-                ),
-                mileage=int(
-                    re.search(
-                        r"(\d+\.?\d*) km", soup.select_one(".data-basic1").get_text()
-                    )
-                    .group(1)
-                    .replace(".", "")
-                ),
+                price=0 if price is None else int(price.group(1).replace(".", "")),
+                mileage=0
+                if mileage is None
+                else int(mileage.group(1).replace(".", "")),
                 color=columns_soup.select_one("li:nth-child(n+9)")
                 .select_one("div:nth-child(n+2)")
                 .get_text(),
-                power=int(
-                    re.search(
-                        r"(\d+\.?\d*) kW",
-                        columns_soup.select_one("li:nth-child(n+11)")
-                        .select_one("div:nth-child(n+2)")
-                        .get_text(),
-                    ).group(1)
-                ),
+                power=0 if power is None else int(power.group(1)),
                 description=BeautifulSoup(driver.page_source, "lxml")
-                .select_one(".short-description")
-                .prettify(),
+                .find("div", {"data-target": "[data-item-name='description']"})
+                .get_text(),
             )
         )
     return ads
