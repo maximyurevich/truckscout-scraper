@@ -4,6 +4,7 @@ import os
 import re
 import time
 from io import BytesIO
+import uuid
 
 import httpx
 from bs4 import BeautifulSoup
@@ -63,16 +64,14 @@ def get_ads_links():
 
 def get_ads_data():
     """Get ads data with selenium and bs4."""
-    if not os.path.exists("data"):
-        os.mkdir("data")
+
     ads = []
     url: str = "https://www.truckscout24.de"
     urls = [url + link for link in get_ads_links()]
 
     for i in range(page_count):
-        id = i + 1
-        if not os.path.exists(f"data/{id}"):
-            os.mkdir(f"data/{id}")
+        id = uuid.uuid4().hex
+        os.mkdir(f"data/{id}")
         page_html = get_html(urls[i])
 
         soup = BeautifulSoup(page_html, "lxml")
@@ -85,6 +84,11 @@ def get_ads_data():
             r"(\d+\.?\d*) km", soup.select_one(".data-basic1").get_text()
         )
 
+        color = re.search(
+            r"Farbe\n(.+)\n",
+            columns.get_text()
+        )
+
         power = re.search(
             r"(\d+\.?\d*) kW",
             columns.get_text(),
@@ -95,7 +99,7 @@ def get_ads_data():
         for j in range(3):
             download_image(
                 carousel_items[j].select_one(".gallery-picture").img["data-src"],
-                f"data/{i+1}/{j + 1}",
+                f"data/{id}/{j + 1}",
             )
 
         driver.get(urls[i])
@@ -120,9 +124,8 @@ def get_ads_data():
                 mileage=0
                 if mileage is None
                 else int(mileage.group(1).replace(".", "")),
-                color=columns.select_one("li:nth-child(n+9)")
-                .select_one("div:nth-child(n+2)")
-                .get_text(),
+                color="" if color is None
+                else color.group(1),
                 power=0 if power is None else int(power.group(1)),
                 description=description,
             )
@@ -133,6 +136,8 @@ def get_ads_data():
 
 def main():
     """Main function."""
+    if not os.path.exists("data"):
+        os.mkdir("data")
     with open("data/data.json", "w") as data:
         data.write(json.dumps({"ads": get_ads_data()}, indent=4))
 
