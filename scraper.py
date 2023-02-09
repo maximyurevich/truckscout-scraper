@@ -109,11 +109,13 @@ def get_ads_data():
             driver.execute_script("arguments[0].click();", show_more)
             time.sleep(5)
 
-        description = (
-            BeautifulSoup(driver.page_source, "lxml")
-            .find("div", {"data-target": "[data-item-name='description']"})
-            .get_text()
+        description_soup = BeautifulSoup(driver.page_source, "lxml")
+        description = description_soup.find(
+            "div", {"data-target": "[data-item-name='description']"}
         )
+
+        for a in description.find_all("a"):
+            a.decompose()
 
         ads.append(
             dict(
@@ -127,7 +129,7 @@ def get_ads_data():
                 color="" if color is None
                 else color.group(1),
                 power=0 if power is None else int(power.group(1)),
-                description=description,
+                description="" if description is None else description.get_text(),
             )
         )
 
